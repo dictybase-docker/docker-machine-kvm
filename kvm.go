@@ -7,7 +7,7 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
-	"github.com/alexzorin/libvirt-go"
+	"gopkg.in/alexzorin/libvirt-go.v2"
 	"io"
 	"io/ioutil"
 	"os"
@@ -287,12 +287,19 @@ func (d *Driver) validateNetwork(name string) error {
 }
 
 func (d *Driver) PreCreateCheck() error {
+	conn, err := libvirt.NewVirConnection(connectionString)
+	if err != nil {
+		log.Errorf("Failed to connect to libvirt: %s", err)
+		return errors.New("Unable to connect to kvm driver, did you add yourself to the libvirtd group?")
+	}
+	d.conn = &conn
+
 	// TODO We could look at d.conn.GetCapabilities()
 	// parse the XML, and look for kvm
 	log.Debug("About to check libvirt version")
 
 	// TODO might want to check minimum version
-	_, err := d.conn.GetLibVersion()
+	_, err = d.conn.GetLibVersion()
 	if err != nil {
 		log.Warnf("Unable to get libvirt version")
 		return err
@@ -685,14 +692,7 @@ func createDiskImage(dest string, size int, r io.Reader) error {
 }
 
 func NewDriver(hostName, storePath string) drivers.Driver {
-	conn, err := libvirt.NewVirConnection(connectionString)
-	if err != nil {
-		log.Errorf("Failed to connect to libvirt: %s", err)
-		os.Exit(1)
-	}
-
 	return &Driver{
-		conn:           &conn,
 		PrivateNetwork: privateNetworkName,
 		BaseDriver: &drivers.BaseDriver{
 			MachineName: hostName,
